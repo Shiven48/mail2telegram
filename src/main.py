@@ -6,9 +6,15 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 import uvicorn
 
-from auth import verify_api_key
-from parser import parse_gmail_content
-from type import EmailParseResponse, OutputMessageMeta
+try:
+    from .auth import verify_api_key
+    from .parser import parse_gmail_content
+    from .type import EmailParseResponse, InputMessageMeta, OutputMessageMeta
+except ImportError:
+    from auth import verify_api_key
+    from parser import parse_gmail_content
+    from type import EmailParseResponse, InputMessageMeta, OutputMessageMeta
+
 
 load_dotenv()
 
