@@ -1,55 +1,44 @@
 import os
 import secrets
 from typing import Optional
+
 from dotenv import load_dotenv
-from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader, APIKeyQuery
 
 load_dotenv()
 
-API_KEY_ENV = os.getenv("API_KEY", "default_secret_key_12345")
+API_KEY_ENV = os.getenv("API_KEY")
+
+if not API_KEY_ENV:
+    raise ValueError("API_KEY environment variable is not set")
+
+_EXPECTED_KEY = API_KEY_ENV.encode("utf-8")
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 api_key_query = APIKeyQuery(name="apiKey", auto_error=False)
 
 
 async def verify_api_key(
-    request: Request,
     header_key: Optional[str] = Security(api_key_header),
     query_key: Optional[str] = Security(api_key_query),
-) -> str:
+) -> None:
     """
-    Validates API key provided via header, query parameter, or Authorization header.
-    Returns the valid API key or raises HTTP 401.
+    Validates the API key from the X-API-Key header or the apiKey query parameter.
+    Raises HTTP 401 if the key is missing or invalid.
     """
-    provided_key: Optional[str] = None
+    provided_key = header_key or query_key
 
-    if header_key:
-        provided_key = header_key
-    elif query_key:
-        provided_key = query_key
-    else:
-        alt_headers = ["apikey"]
-        for h in alt_headers:
-            if h in request.headers:
-                provided_key = request.headers[h]
-                break
-
-        if not provided_key and "authorization" in request.headers:
-            auth_val = request.headers["authorization"].strip()
-
-            parts = auth_val.split(maxsplit=1)
-            if len(parts) == 2 and parts[0].lower() in ["bearer", "apikey", "key"]:
-                provided_key = parts[1]
-            elif len(parts) == 1:
-                provided_key = parts[0]
-
-    if not provided_key or not secrets.compare_digest(provided_key, API_KEY_ENV):
+    if not provided_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API Key. Provide it via X-API-Key header or ?apiKey= query param.",
+            detail="Missing API key. Provide it via the X-API-Key header.",
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
-    return provided_key
-
+    if not secrets.compare_digest(provided_key.encode("utf-8"), _EXPECTED_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
