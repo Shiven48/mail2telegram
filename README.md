@@ -30,7 +30,7 @@ class InputMessageMeta:
 ```python
 @dataclass
 class OutputMessageMeta:
-    platform: str                  # e.g., telegram
+    platform: str                  # e.g., gmail
     client_name: str               # e.g., keto
     client_mail: str               # e.g., test@gmail.com
     message: str                   # Clean message body
